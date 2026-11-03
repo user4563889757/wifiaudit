@@ -199,8 +199,8 @@ is not a security control. It can make roaming and diagnosis worse.
   It cannot verify whether WPS is actually usable.
 - Signal strength is a rough percentage from NetworkManager, not a calibrated
   measurement.
-- The active-connection check reads only `key-mgmt`, `pairwise`, `group`, and
-  `proto`; it never reads the pre-shared key.
+- The active-connection check reads only `key-mgmt`, `pairwise`, `group`,
+  `proto`, and the non-secret WEP key type; it never reads the pre-shared key.
 - This is not a replacement for a full wireless assessment or a site survey.
 
 ## Tests

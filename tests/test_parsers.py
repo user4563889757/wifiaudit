@@ -168,7 +168,9 @@ class FindingTests(unittest.TestCase):
         )
         codes = {finding["code"] for finding in wifiaudit.audit_network(network)}
         self.assertIn("wep", codes)
-        self.assertEqual(wifiaudit.network_risk(wifiaudit.audit_network(network)), "high")
+        self.assertEqual(
+            wifiaudit.network_risk(wifiaudit.audit_network(network)), "high"
+        )
 
     def test_wpa1_enabled_alongside_wpa2_is_low(self):
         network = wifiaudit.Network(
@@ -237,6 +239,22 @@ class ActiveConnectionTests(unittest.TestCase):
         findings = wifiaudit.audit_active(active)
         self.assertEqual(findings[0]["code"], "active-open")
         self.assertEqual(findings[0]["severity"], "high")
+
+    def test_wep_active_connection_is_not_reported_as_open(self):
+        active = {
+            "name": "Old",
+            "security": {
+                "key-mgmt": "none",
+                "pairwise": "",
+                "group": "",
+                "proto": "",
+                "wep-key-type": "1",
+            },
+        }
+        findings = wifiaudit.audit_active(active)
+        codes = {finding["code"] for finding in findings}
+        self.assertIn("active-wep", codes)
+        self.assertNotIn("active-open", codes)
 
     def test_wpa1_active_connection_flagged(self):
         active = {

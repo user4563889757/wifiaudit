@@ -42,7 +42,8 @@ ACTIVE_FIELDS = (
     "802-11-wireless-security.key-mgmt,"
     "802-11-wireless-security.pairwise,"
     "802-11-wireless-security.group,"
-    "802-11-wireless-security.proto"
+    "802-11-wireless-security.proto,"
+    "802-11-wireless-security.wep-key-type"
 )
 DEVICE_FIELDS = (
     "GENERAL.CONNECTION,GENERAL.STATE,IP4.ADDRESS,IP4.GATEWAY,IP4.DNS,"
@@ -210,7 +211,9 @@ class Network:
 # ---------------------------------------------------------------------------
 
 
-def run_command(args: Sequence[str], timeout: int = 20) -> subprocess.CompletedProcess[str]:
+def run_command(
+    args: Sequence[str], timeout: int = 20
+) -> subprocess.CompletedProcess[str]:
     try:
         return subprocess.run(
             list(args),
@@ -473,7 +476,7 @@ def read_active_connection(
             values[key] = value
         security = {
             key: values.get(f"802-11-wireless-security.{key}")
-            for key in ("key-mgmt", "pairwise", "group", "proto")
+            for key in ("key-mgmt", "pairwise", "group", "proto", "wep-key-type")
         }
         if all(value is None for value in security.values()):
             warnings.append("active connection security settings are unavailable")
@@ -509,7 +512,11 @@ def audit_network(network: Network) -> list[dict[str, str]]:
         add("medium", "tkip", "TKIP cipher in use; prefer AES/CCMP.")
     if flags["wps"] or network.wps is True:
         suffix = f" ({network.wps_state})" if network.wps_state else ""
-        add("medium", "wps-enabled", f"WPS is enabled{suffix}; disable it if not needed.")
+        add(
+            "medium",
+            "wps-enabled",
+            f"WPS is enabled{suffix}; disable it if not needed.",
+        )
     if network.hidden:
         add(
             "low",
@@ -553,8 +560,12 @@ def audit_active(active: dict[str, Any] | None) -> list[dict[str, str]]:
         findings.append({"severity": severity, "code": code, "message": message})
 
     key_mgmt = (security.get("key-mgmt") or "").strip().lower()
+    wep_key_type = (security.get("wep-key-type") or "").strip()
     if not key_mgmt or key_mgmt == "none":
-        add("high", "active-open", "Active connection has no wireless encryption.")
+        if wep_key_type:
+            add("high", "active-wep", "Active connection uses broken WEP encryption.")
+        else:
+            add("high", "active-open", "Active connection has no wireless encryption.")
     elif key_mgmt == "wep":
         add("high", "active-wep", "Active connection uses broken WEP encryption.")
 
@@ -762,7 +773,9 @@ def print_human(report: dict[str, Any], verbose: bool, color: bool) -> None:
                 target = finding["ssid"] or "<hidden>"
                 if finding["bssid"]:
                     target += f" ({finding['bssid']})"
-            label = paint(finding["severity"].upper().ljust(6), finding["severity"], color)
+            label = paint(
+                finding["severity"].upper().ljust(6), finding["severity"], color
+            )
             print(f"  {label} {target}: {finding['message']}")
     else:
         print("No high, medium, or low findings.")
